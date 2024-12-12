@@ -207,7 +207,6 @@ class Interp {
 		case EIdent(id):
 			var l = locals.get(id);
 			var v : Dynamic = (l == null) ? resolve(id) : l.r;
-			function setTo(v) {
 			if( prefix ) {
 				v += delta;
 				if( l == null ) setVar(id,v) else l.r = v;
