@@ -140,7 +140,7 @@ class Macro {
 				});
 			case EIdent(v):
 				EConst(CIdent(v));
-			case EVar(n, t, e):
+			case EVar(n, t, e), EFinal(n, t, e):
 				EVars([ { name : n, expr : if( e == null ) null else convert(e), type : if( t == null ) null else convertType(t) } ]);
 			case EParent(e):
 				EParenthesis(convert(e));

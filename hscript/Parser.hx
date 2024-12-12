@@ -117,8 +117,8 @@ class Parser {
 			["..."],
 			["&&"],
 			["||"],
-			["=","+=","-=","*=","/=","%=","<<=",">>=",">>>=","|=","&=","^=","=>"],
-			["->"]
+			["=","+=","-=","*=","/=","%=","<<=",">>=",">>>=","|=","&=","^=","=>","??="],
+			["->", "??"]
 		];
 		opPriority = new Map();
 		opRightAssoc = new Map();
@@ -266,7 +266,7 @@ class Parser {
 		return switch( expr(e) ) {
 		case EBlock(_), EObject(_), ESwitch(_): true;
 		case EFunction(_,e,_,_): isBlock(e);
-		case EVar(_, t, e): e != null ? isBlock(e) : t != null ? t.match(CTAnon(_)) : false;
+		case EVar(_, t, e), EFinal(_, t, e): e != null ? isBlock(e) : t != null ? t.match(CTAnon(_)) : false;
 		case EIf(_,e1,e2): if( e2 != null ) isBlock(e2) else isBlock(e1);
 		case EBinop(_,_,e): isBlock(e);
 		case EUnop(_,prefix,e): !prefix && isBlock(e);
@@ -592,7 +592,7 @@ class Parser {
 				if( semic ) push(TSemicolon);
 			}
 			mk(EIf(cond,e1,e2),p1,(e2 == null) ? tokenMax : pmax(e2));
-		case "var":
+		case "var", "final":
 			var ident = getIdent();
 			var tk = token();
 			var t = null;
@@ -605,7 +605,8 @@ class Parser {
 				e = parseExpr();
 			else
 				push(tk);
-			mk(EVar(ident,t,e),p1,(e == null) ? tokenMax : pmax(e));
+			if (id == "final")  mk(EFinal(ident,t,e),p1,(e == null) ? tokenMax : pmax(e));
+			else mk(EVar(ident,t,e),p1,(e == null) ? tokenMax : pmax(e));
 		case "while":
 			var econd = parseExpr();
 			var e = parseExpr();
@@ -1469,8 +1470,17 @@ class Parser {
 			case "'".code, '"'.code: return TConst( CString(readString(char)) );
 			case "?".code:
 				char = readChar();
-				if( char == ".".code )
-					return TQuestionDot;
+				switch (char) {
+					case '?'.code:
+						var orp = readPos;
+						if (readChar() == '='.code)
+							return TOp("??=");
+
+						this.readPos = orp;
+						return TOp("??");
+					case '.'.code:
+						return TQuestionDot;
+				}
 				this.char = char;
 				return TQuestion;
 			case ":".code: return TDoubleDot;
