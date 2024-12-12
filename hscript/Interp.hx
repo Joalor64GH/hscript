@@ -24,6 +24,8 @@ import haxe.PosInfos;
 import hscript.Expr;
 import haxe.Constraints.IMap;
 
+using StringTools;
+
 private enum Stop {
 	SBreak;
 	SContinue;
@@ -33,6 +35,9 @@ private enum Stop {
 class Interp {
 
 	public var variables : Map<String,Dynamic>;
+	public var publicVariables:Map<String, Dynamic>;
+	public var staticVariables:Map<String, Dynamic>;
+
 	var locals : Map<String,{ r : Dynamic }>;
 	var binops : Map<String, Expr -> Expr -> Dynamic >;
 
@@ -40,6 +45,9 @@ class Interp {
 	var inTry : Bool;
 	var declared : Array<{ n : String, old : { r : Dynamic } }>;
 	var returnValue : Dynamic;
+
+	public var allowStaticVariables:Bool = false;
+	public var allowPublicVariables:Bool = false;
 
 	#if hscriptPos
 	var curExpr : Expr;
@@ -54,6 +62,8 @@ class Interp {
 
 	private function resetVariables(){
 		variables = new Map<String,Dynamic>();
+		publicVariables = new Map<String, Dynamic>();
+		staticVariables = new Map<String, Dynamic>();
 		variables.set("null",null);
 		variables.set("true",true);
 		variables.set("false",false);
@@ -116,9 +126,13 @@ class Interp {
 		assignOp("??=", function(v1, v2) return v1 == null ? v2 : v1);
 	}
 
-	function setVar( name : String, v : Dynamic ) {
-		variables.set(name, v);
-		return v;
+	public function setVar(name:String, v:Dynamic) {
+		if (allowStaticVariables && staticVariables.exists(name))
+			staticVariables.set(name, v);
+		else if (allowPublicVariables && publicVariables.exists(name))
+			publicVariables.set(name, v);
+		else
+			variables.set(name, v);
 	}
 
 	function assign( e1 : Expr, e2 : Expr ) : Dynamic {
@@ -128,10 +142,8 @@ class Interp {
 			var l = locals.get(id);
 			if( l == null )
 				setVar(id,v)
-			else {
-				if ( l.const != true ) l.r = v;
-				else error(ECustom("Cannot reassign final, for constant expression -> "+id));
-			}
+			else 
+				l.r = v;
 		case EField(e,f):
 			v = set(expr(e),f,v);
 		case EArray(e, index):
@@ -163,10 +175,8 @@ class Interp {
 			v = fop(expr(e1),expr(e2));
 			if( l == null )
 				setVar(id,v)
-			else {
-				if ( l.const != true ) l.r = v;
-				else error(ECustom("Cannot reassign final, for constant expression -> "+id));
-			}
+			else 
+				l.r = v;
 		case EField(e,f):
 			var obj = expr(e);
 			v = fop(get(obj,f),expr(e2));
@@ -198,14 +208,11 @@ class Interp {
 			var l = locals.get(id);
 			var v : Dynamic = (l == null) ? resolve(id) : l.r;
 			function setTo(v) {
-				if ( l.const != true ) l.r = v;
-				else error(ECustom("Cannot reassign final, for constant expression -> "+id));
-			}
 			if( prefix ) {
 				v += delta;
-				if( l == null ) setVar(id,v) else setTo(v);
+				if( l == null ) setVar(id,v) else l.r = v;
 			} else
-				if( l == null ) setVar(id,v + delta) else setTo(v + delta);
+				if( l == null ) setVar(id,v + delta) else l.r = v + delta;
 			return v;
 		case EField(e,f):
 			var obj = expr(e);
@@ -295,9 +302,19 @@ class Interp {
 		#end
 	}
 
-	function resolve( id : String ) : Dynamic {
+	public function resolve( id : String, doException : Bool = true ) : Dynamic {
+		if (id == null)
+			return null;
+		id = StringTools.trim(id);
+		var l = locals.get(id);
+		if (l != null)
+			return l.r;
+
 		var v = variables.get(id);
-		if( v == null && !variables.exists(id) )
+		for(map in [variables, publicVariables, staticVariables, customClasses])
+			if (map.exists(id))
+				return map[id];
+		if( doException )
 			error(EUnknownVariable(id));
 		return v;
 	}
@@ -321,13 +338,16 @@ class Interp {
 			if( l != null )
 				return l.r;
 			return resolve(id);
-		case EVar(n,t,v), EFinal(n,t,v):
-			var isConst : Bool = switch(e) {
-				case EFinal(n,t,v): true;
-				default: false;
-			}
+		case EVar(n,t,v, isPublic, isStatic):
 			declared.push({ n : n, old : locals.get(n) });
-			locals.set(n,{ r : (v == null)?null:expr(v), const : isConst});
+			locals.set(n,{ r : (e == null)?null:expr(e) });
+			if(isStatic == true) {
+				if(!staticVariables.exists(n)) {
+					staticVariables.set(n, locals[n].r);
+				}
+				return null;
+			}
+			(isPublic ? publicVariables : variables).set(n, locals[n].r);
 			return null;
 		case EParent(e):
 			return expr(e);
@@ -390,7 +410,7 @@ class Interp {
 		case EReturn(e):
 			returnValue = e == null ? null : expr(e);
 			throw SReturn;
-		case EFunction(params,fexpr,name,_):
+		case EFunction(params,fexpr,name,_, isPublic, isStatic, isOverride):
 			var capturedLocals = duplicate(locals);
 			var me = this;
 			var hasOpt = false, minParams = 0;
@@ -452,7 +472,7 @@ class Interp {
 			if( name != null ) {
 				if( depth == 0 ) {
 					// global function
-					variables.set(name, f);
+					((isStatic && allowStaticVariables) ? staticVariables : ((isPublic && allowPublicVariables) ? publicVariables : variables)).set(name, f);
 				} else {
 					// function-in-function is a local function
 					declared.push( { n : name, old : locals.get(name) } );

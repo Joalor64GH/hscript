@@ -140,7 +140,7 @@ class Macro {
 				});
 			case EIdent(v):
 				EConst(CIdent(v));
-			case EVar(n, t, e), EFinal(n, t, e):
+			case EVar(n, t, e):
 				EVars([ { name : n, expr : if( e == null ) null else convert(e), type : if( t == null ) null else convertType(t) } ]);
 			case EParent(e):
 				EParenthesis(convert(e));
@@ -218,6 +218,8 @@ class Macro {
 				EMeta({ name : m, params : params == null ? [] : [for( p in params ) convert(p)], pos : mpos }, convert(esub));
 			case ECheckType(e, t):
 				ECheckType(convert(e), convertType(t));
+			default:
+				null;
 		}, pos : #if (!macro && hscriptPos) { file : p.file, min : e.pmin, max : e.pmax } #else p #end }
 	}
 

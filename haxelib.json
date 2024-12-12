@@ -4,6 +4,6 @@
   "license": "MIT",
   "description": "A modified version of hscript for personal use",
   "version": "2.6.0",
-  "releasenote": "?? and ??= operators, final keyword",
+  "releasenote": "?? and ??= operators, public and static variables",
   "contributors": ["ncannasse","HaxeFoundation","Joalor64GH"]
 }
