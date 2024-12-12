@@ -1,9 +1,9 @@
 {
   "name": "hscript",
-  "url": "https://github.com/HaxeFoundation/hscript",
+  "url": "https://github.com/Joalor64GH/hscript",
   "license": "MIT",
-  "description": "Haxe Script is a scripting engine for a subset of the Haxe language",
+  "description": "A modified version of hscript for personal use",
   "version": "2.6.0",
-  "releasenote": "More Haxe 4/5 features",
-  "contributors": ["ncannasse","HaxeFoundation"]
+  "releasenote": "?? and ??= operators, final keyword",
+  "contributors": ["ncannasse","HaxeFoundation","Joalor64GH"]
 }
