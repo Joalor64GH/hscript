@@ -301,19 +301,17 @@ class Interp {
 		#end
 	}
 
-	public function resolve( id : String, doException : Bool = true ) : Dynamic {
-		if (id == null)
-			return null;
+	public function resolve( id : String ) : Dynamic {
 		id = StringTools.trim(id);
 		var l = locals.get(id);
 		if (l != null)
 			return l.r;
 
 		var v = variables.get(id);
-		for(map in [variables, publicVariables, staticVariables, customClasses])
+		for(map in [variables, publicVariables, staticVariables])
 			if (map.exists(id))
 				return map[id];
-		if( doException )
+		if( v == null && !variables.exists(id) )
 			error(EUnknownVariable(id));
 		return v;
 	}
