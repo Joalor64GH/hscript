@@ -329,6 +329,7 @@ class Printer {
 			add(" : ");
 			addType(t);
 			add(")");
+		case _:
 		}
 	}
 

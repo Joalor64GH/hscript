@@ -171,7 +171,10 @@ class Parser {
 
 	public function parseString( s : String, ?origin : String = "hscript", ?position : Int = 0 ) {
 		initParser(origin, position);
-		input = s;
+		if (s.startsWith("package;")) 
+			input = s.substr(0, 8)
+		else 
+			input = s;
 		readPos = 0;
 		var a = new Array();
 		while( true ) {
@@ -666,6 +669,53 @@ class Parser {
 			}
 			var args = parseExprList(TPClose);
 			mk(ENew(a.join("."),args),p1);
+		case "package":
+				var oldReadPos = readPos;
+				var tk = token();
+				switch( tk ) {
+					case TPOpen:
+						var tok = token();
+						switch(tok) {
+							case TConst(c):
+								switch(c) {
+									case CString(s):
+										token();
+										ensure(TSemicolon);
+										push(TSemicolon);
+										mk(EPackage(s), p1);
+									default:
+										unexpected(tok);
+										null;
+								}
+							default:
+								unexpected(tok);
+								null;
+						}
+					case TId(id):
+						var path = [id];
+						var t = null;
+						while( true ) {
+							t = token();
+							if( t != TDot ) {
+								push(t);
+								break;
+							}
+							t = token();
+							switch( t ) {
+							case TId(id):
+								path.push(id);
+							default:
+								unexpected(t);
+							}
+						}
+						ensure(TSemicolon);
+						push(TSemicolon);
+						var p = path.join(".");
+						mk(EPackage(p),p1);
+					default:
+						unexpected(tk);
+						null;
+					}
 		case "throw":
 			var e = parseExpr();
 			mk(EThrow(e),p1,pmax(e));

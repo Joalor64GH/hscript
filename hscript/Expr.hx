@@ -40,6 +40,7 @@ enum ExprDef {
 typedef ExprDef = Expr;
 enum Expr {
 #end
+	EPackage( ?c : String );
 	EConst( c : Const );
 	EIdent( v : String );
 	EVar( n : String, ?t : CType, ?e : Expr );
